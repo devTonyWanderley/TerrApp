@@ -1,0 +1,20 @@
+# Compilação e Binários
+build/
+bin/
+obj/
+*.o
+*.a
+*.exe
+
+# Arquivos específicos do Qt Creator e CMake
+CMakeLists.txt.user
+*.user
+.cmake/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Sistema
+.DS_Store
+Thumbs.db
