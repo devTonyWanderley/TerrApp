@@ -18,6 +18,9 @@ add_library(TerraCore STATIC
   geometria_base.h
   banco_segmentos.h
   tracado.h
+  superficie.h superficie.cpp
+  terraio.h terraio.cpp
+  linkserialbase.h linkserialbase.cpp
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)
