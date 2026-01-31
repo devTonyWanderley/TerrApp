@@ -21,6 +21,10 @@ add_library(TerraCore STATIC
   superficie.h superficie.cpp
   terraio.h terraio.cpp
   linkserialbase.h linkserialbase.cpp
+  arquiteturaterracore.qmt
+  formatEstrito.h
+  motorArquivoFixo.h
+  laboratorio.h
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)

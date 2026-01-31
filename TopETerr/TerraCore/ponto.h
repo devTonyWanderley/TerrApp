@@ -2,6 +2,7 @@
 #include <variant>
 #include <string>
 #include <utility>
+#include <algorithm> // Para std::move e comparações
 
 // Define a unidade atômica do sistema com suporte a polimorfismo de dados (Levantamento vs. Projeto).
 // Garante a sincronia entre coordenadas cartesianas (X,Y) e o sistema de via (DA, Offset).
@@ -9,6 +10,28 @@
 struct idAmostra {
     std::string id;
     std::string attr;
+
+    // Helper estático interno para limpeza (trim)
+    static std::string limpar(std::string s) {
+        size_t last = s.find_last_not_of(' ');
+        if (std::string::npos == last) return "";
+        s.erase(last + 1);
+        return s;
+    }
+
+    // Construtor "Funil": Imutabilidade e limpeza no nascimento
+    idAmostra(std::string i, std::string a)
+        : id(limpar(std::move(i))), attr(limpar(std::move(a))) {}
+
+    // Operadores de Comparação (Custo zero de manutenção futura)
+    bool operator==(const idAmostra& outro) const {
+        return id == outro.id && attr == outro.attr;
+    }
+
+    bool operator<(const idAmostra& outro) const {
+        if (id != outro.id) return id < outro.id;
+        return attr < outro.attr;
+    }
 };
 
 struct vNoTracado {
