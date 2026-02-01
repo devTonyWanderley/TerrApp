@@ -75,3 +75,60 @@
 ### Performance:
 - Carga de ~500 pontos realizada em tempo imperceptível, validando a estratégia de alocação antecipada via 
 `std::vector::reserve`.
+
+###  Protocolo de Estabilidade Numérica e Escala de Trabalho
+1.  **O Envelope de Segurança (Magnitude vs. Precisão) Raio de Operação Local:**
+  Limitado a \(10^{5}\) metros (100 km).Justificativa:
+  Ao manter as coordenadas locais nesta ordem de grandeza,
+  garantimos que a mantissa do double (52 bits) preserve a precisão de \(10^{-5}\) mesmo após o "estresse" do
+  determinante de Delaunay (que opera com o quadrado das distâncias, \(L^{2}\)).
+  
+  Margem de Manobra:
+  O décimo de milímetro (\(10^{-4}\)) permanece isolado de ruídos de arredondamento e "rasgos" topológicos.
+  
+2.  **A Resolução de Conflito (O Critério Highlander) Tolerância de Proximidade (\(\epsilon \)):**
+  Fixada em \(10^{-3}\) metros (1 mm).Regra de Unicidade:
+  Dois pontos em um raio inferior a 1 mm são tratados como Entidade Única.
+  Impacto:
+  Elimina o risco de divisões por zero e loops infinitos na Quadtree, além de estabilizar o determinante do
+  "Francês" em áreas de alta densidade de pontos.
+  
+3. **Hierarquia de Processamento (Quadtree)**
+  Profundidade:
+  24 níveis de partição.
+  
+  Resolução de Célula:
+  Discretização do espaço em quadrantes de ordem centimétrica/milimétrica.
+  
+  Garantia:
+  O "estouro" da árvore é fisicamente impossível devido ao limite de 1 mm de proximidade imposto na carga de dados.
+  
+
+Mapa sobre o pântano:
+1. Filosofia de Projeto
+Abstração Independente: O motor de engenharia (TerraCore) permanece agnóstico à interface (TopETerr).
+Mecânica de Baixo Nível: Prioridade para estruturas contíguas em memória (std::vector) e manipulação direta de bits
+(Shift/Mask) para performance "Assembly-like".
+Sanidade na Fronteira: O dado entra "sujo" (comprimento fixo), mas é limpo e validado no Construtor (O Funil).
+2. Decisões de Design (Os Pilares)
+Estabilidade Numérica (Localização):
+Implementação de Origem de Trabalho Automática (Menor X e Y da instância).
+Uso de xLoc e yLoc para todos os cálculos geométricos (Proteção da Mantissa do double).Resolução e Tolerância:A malha
+opera na escala de Décimo de Milímetro (\(10^{-4}\)m).Tolerância de Coincidência (\(\epsilon \)): Fixada em 1 milímetro.
+Pontos dentro deste raio são fundidos.Indexação Espacial (A Quadtree Highlander):Particionamento por Resolução Fixa
+(24 níveis) em vez de baldes de pontos.Tratamento de Fronteira: Implementação de consulta trans-fronteira para evitar
+"rasgos" topológicos em limites de quadrantes.
+3. Fila de Execução (O Caminho Crítico)
+Fase A: Preparação de Terreno
+Refinar ponto.h: Adicionar xLoc, yLoc e método centralizarNaOrigem(Xo, Yo).
+Consolidar BoundingBox: Criar rotina que varre o poolPontos para extrair os limites e definir a Origem de Trabalho.
+Fase B: O Indexador (A Quadtree)
+Estruturar quadtree.h: Criar o Pool de Nós linear (sem new/delete esparsos).
+Implementar Inserção: Incluir a trava de segurança dos 24 níveis para matar o loop infinito de pontos coincidentes.
+Fase C: O Olho do Francês (Delaunay)
+Predicados Robustos: Implementar orientar2d e testeInCircle (Parabolóide) no Laboratório usando Coordenadas Locais.
+O Caminhador: Criar a navegação entre triângulos usando o Mapa de Adjacência.
+
+Reflexão de Equipe (O "Check")
+"Não estamos apenas acumulando pontos; estamos construindo um tecido matemático. A Quadtree organiza, o Francês conecta,
+e as Breaklines (nossa 'mão grande') dão o veredito final."

@@ -2,16 +2,12 @@
 #include <variant>
 #include <string>
 #include <utility>
-#include <algorithm> // Para std::move e comparações
-
-// Define a unidade atômica do sistema com suporte a polimorfismo de dados (Levantamento vs. Projeto).
-// Garante a sincronia entre coordenadas cartesianas (X,Y) e o sistema de via (DA, Offset).
+#include <algorithm>
 
 struct idAmostra {
     std::string id;
     std::string attr;
 
-    // Helper estático interno para limpeza (trim)
     static std::string limpar(std::string s) {
         size_t last = s.find_last_not_of(' ');
         if (std::string::npos == last) return "";
@@ -19,46 +15,40 @@ struct idAmostra {
         return s;
     }
 
-    // Construtor "Funil": Imutabilidade e limpeza no nascimento
     idAmostra(std::string i, std::string a)
         : id(limpar(std::move(i))), attr(limpar(std::move(a))) {}
 
-    // Operadores de Comparação (Custo zero de manutenção futura)
     bool operator==(const idAmostra& outro) const {
         return id == outro.id && attr == outro.attr;
-    }
-
-    bool operator<(const idAmostra& outro) const {
-        if (id != outro.id) return id < outro.id;
-        return attr < outro.attr;
     }
 };
 
 struct vNoTracado {
-    double estaca; // Internamente tratada como Distância Acumulada
+    double estaca;
     double offset;
 };
 
 struct Ponto {
+    // Registradores Estáticos da Obra
+    static double xOrigem;
+    static double yOrigem;
+
+    // Dados da Instância (Ocupa o mínimo de espaço: 24 bytes para coordenadas)
     double x, y, z;
+
     std::variant<std::monostate, idAmostra, vNoTracado> dados;
 
-    Ponto(double x, double y, double z)
-        : x(x), y(y), z(z), dados(std::monostate{}) {}
+    // Construtor Padrão (Entra Global -> Nasce Local)
+    Ponto(double xG, double yG, double zG)
+        : x(xG - xOrigem), y(yG - yOrigem), z(zG), dados(std::monostate{}) {}
 
-    Ponto(double x, double y, double z, std::string id, std::string attr)
-        : x(x), y(y), z(z), dados(idAmostra{std::move(id), std::move(attr)}) {}
+    // Construtor de Levantamento (Entra Global -> Nasce Local + Limpeza)
+    Ponto(double xG, double yG, double zG, std::string id, std::string attr)
+        : x(xG - xOrigem), y(yG - yOrigem), z(zG),
+        dados(idAmostra{std::move(id), std::move(attr)}) {}
 
-    Ponto(double x, double y, double z, double estaca, double offset)
-        : x(x), y(y), z(z), dados(vNoTracado{estaca, offset}) {}
-
-    void atualizarPeloEixo(double da, double off, double nx, double ny) {
-        if (auto* proj = std::get_if<vNoTracado>(&dados)) {
-            proj->estaca = da;
-            proj->offset = off;
-        } else if (std::holds_alternative<std::monostate>(dados)) {
-            dados = vNoTracado{da, off};
-        }
-        x = nx; y = ny;
-    }
+    // Métodos de Devolução (Recomposição para Ambiente Externo)
+    inline double xGlobal() const { return x + xOrigem; }
+    inline double yGlobal() const { return y + yOrigem; }
+    inline double zGlobal() const { return z; }
 };

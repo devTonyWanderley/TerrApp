@@ -25,6 +25,7 @@ add_library(TerraCore STATIC
   formatEstrito.h
   motorArquivoFixo.h
   laboratorio.h
+  adaptadorPontos.h
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)
