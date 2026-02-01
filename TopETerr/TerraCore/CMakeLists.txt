@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(TerraCore LANGUAGES CXX)
+# Adicione isso logo após a definição do projeto
+if(MSVC)
+    # Para compiladores Microsoft (se um dia mudar)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+else()
+    # Para o seu MinGW / GCC
+    # -mbmi2: Ativa as instruções PDEP/PEXT
+    # -march=native: Otimiza para o seu processador atual
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2 -march=native")
+endif()
+
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -26,6 +37,8 @@ add_library(TerraCore STATIC
   motorArquivoFixo.h
   laboratorio.h
   adaptadorPontos.h
+  quadTree.h
+  quadTree.cpp
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)

@@ -102,9 +102,21 @@
   
   Garantia:
   O "estouro" da árvore é fisicamente impossível devido ao limite de 1 mm de proximidade imposto na carga de dados.
-  
 
-Mapa sobre o pântano:
+### Limites do Universo Binário:
+  **Resolução Estrita:**
+    (0,1)mm (10E-4 m).
+    
+  **Quadro Master 2^26:**
+    Alcance de 6,71km a partir da origem local. Neste raio, o motor opera com Zero Erro de Arredondamento em
+    predicados geométricos.
+    
+  **Protocolo de Transbordamento:**
+    Para projetos de infraestrutura linear que excedem 6,7km, o sistema adotará o quadro de 2^27 (13,42km),
+    mantendo uma estabilidade topológica com precisão sub-milimétrica.
+    
+
+Mapa sobre o pântano:00
 1. Filosofia de Projeto
 Abstração Independente: O motor de engenharia (TerraCore) permanece agnóstico à interface (TopETerr).
 Mecânica de Baixo Nível: Prioridade para estruturas contíguas em memória (std::vector) e manipulação direta de bits

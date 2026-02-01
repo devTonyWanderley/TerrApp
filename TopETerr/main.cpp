@@ -1,20 +1,31 @@
 #include <iostream>
 #include <vector>
-#include <string>
-#include <variant>
+//#include <string>
+//#include <variant>
 #include "motorArquivoFixo.h"
-//#include "laboratorio.h"
+#include "laboratorio.h"
 #include "adaptadorPontos.h"
 #include "ponto.h"
+#include <algorithm> // Onde mora o mestre std::sort
+#include "geometria_base.h"
+#include "painelCad.h"
+#include <QApplication> // Necessário para gerenciar a janela
+
 
 // Reserva o espaço físico para as variáveis estáticas
 double Ponto::xOrigem = 0.0;
 double Ponto::yOrigem = 0.0;
 
+int main(int argc, char **argv) {
+    QApplication app(argc, argv);
+    TerraView::PainelCad visualizador;
+    visualizador.setWindowTitle("TerraView - Motor Gráfico [531 Pontos]");
+    visualizador.resize(1024, 768); // Tamanho inicial de conforto
 
-int main() {
+
+
     // 1. Configurações de Acesso
-    std::string caminho = R"(C:\2026\Soft\Instâncias\Pontos.pdw)";
+    std::string caminho = u8"C:/2026/Soft/Instâncias/Pontos.pdw";
     TerraIO::LayoutConfig layout = {16, 16, 12, 12, 12};
 
     // 2.1 Importação da Matriz Bruta
@@ -25,84 +36,55 @@ int main() {
         return -1;
     }
 
-    // 2.2 BUSCA DO MARCO ZERO (A primeira passada na matriz)
-    double minX = 999999999.0; // Valores "infinitos" para começar
-    double minY = 999999999.0;
-
+    double minX = 1e18, minY = 1e18, maxX = -1e18, maxY = -1e18;
     for (const auto& fatias : matrizBruta) {
-        if (fatias.size() >= 5) {
-            double x = TerraIO::fix12ParaDouble(fatias[2]);
-            double y = TerraIO::fix12ParaDouble(fatias[3]);
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
+        if (fatias.size() >= 3) {
+            double x = TerraIO::fix12ParaDouble(fatias[1]);
+            double y = TerraIO::fix12ParaDouble(fatias[2]);
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
         }
     }
 
-    // 3.1 SETAGEM DAS CONSTANTES (A casa está pronta para os hóspedes)
+    // Define o Referencial de Inércia da Obra
     Ponto::xOrigem = minX;
     Ponto::yOrigem = minY;
 
-    // 3.2 CARGA: Transformando a matriz em nosso Pool de Pontos (Variáveis de Trabalho)
+    // 3. SEGUNDA PASSADA: CARGA E ORDENAÇÃO DE MORTON
     std::vector<Ponto> poolPontos;
-    poolPontos.reserve(matrizBruta.size()); // Assembly mindset: aloca de uma vez
-
+    poolPontos.reserve(matrizBruta.size() + 3); // +3 para o Super-Triângulo
     for (const auto& fatias : matrizBruta) {
-        // O Laboratório faz a ponte e o construtor do Ponto faz a limpeza
-        //poolPontos.push_back(TerraLaboratorio::AdaptadorUniversal::criarPonto(fatias));
         poolPontos.push_back(TerraIO::AdaptadorPontos::criarPonto(fatias));
     }
 
-    // 4. IMPRESSÃO: Validando os dados limpos e convertidos
-    std::cout << "--- POOL DE PONTOS (Variaveis de Trabalho) ---" << std::endl;
-    std::cout << "Total carregado: " << poolPontos.size() << " pontos.\n" << std::endl;
+    // Aplica o "Zíper de Morton" para vizinhança física na RAM
+    std::sort(poolPontos.begin(), poolPontos.end(), [](const Ponto& a, const Ponto& b) {
+        return Quadtree::gerarMortonBMI2(static_cast<uint32_t>(a.x * 10000),
+                                         static_cast<uint32_t>(a.y * 10000)) <
+               Quadtree::gerarMortonBMI2(static_cast<uint32_t>(b.x * 10000),
+                                         static_cast<uint32_t>(b.y * 10000));
+    });
 
-    for (const auto& p : poolPontos) {
-        // Acesso seguro ao variant de idAmostra para imprimir ID e Attr
-        std::visit([](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, idAmostra>) {
-                // Aqui veremos os dados SEM os espaços (Trimmed)
-                std::cout << "ID:[" << arg.id << "] ATTR:[" << arg.attr << "]";
-            }
-        }, p.dados);
+    // 4. NASCIMENTO DA MALHA: SUPER-TRIÂNGULO
+    auto sup = TerraLaboratorio::SuperficieInicial::criar(0, 0, maxX - minX, maxY - minY);
 
-        // Imprime as coordenadas convertidas do décimo de milímetro para metro
-        std::printf(" | X: %12.4f | Y: %12.4f | Z: %8.4f\n", p.x, p.y, p.z);
-    }
+    // Adicionamos os vértices fantasmas ao pool e criamos a face mestra
+    poolPontos.insert(poolPontos.begin(), sup.vertices.begin(), sup.vertices.end());
+    std::vector<Face> faces;
+    faces.push_back(sup.faceMestra);
+    visualizador.carregarPontos(poolPontos);
+    visualizador.show(); // Exibe a tela negra
 
-    std::cout << "\n--- TESTE CONCLUIDO COM SUCESSO ---" << std::endl;
-    return 0;
+    // 5. DIAGNÓSTICO VISUAL (O Olho do Engenheiro)
+    TerraLaboratorio::exportarParaSVG("diagnostico.svg", poolPontos, faces,
+                                      0, 0, maxX - minX, maxY - minY);
+
+    std::cout << "Carga concluída: " << poolPontos.size() - 3 << " pontos reais." << std::endl;
+    std::cout << "DNA de Morton aplicado. Diagnostico SVG gerado." << std::endl;
+    return app.exec();
+
+    //return 0;
 }
-
-/*
-// 1. Importação da Matriz Bruta (Ainda não temos nenhum objeto Ponto)
-auto matrizBruta = TerraIO::motorArquivoFixo::importarParaMatriz(caminho, layout);
-
-// 2. BUSCA DO MARCO ZERO (A primeira passada na matriz)
-double minX = 999999999.0; // Valores "infinitos" para começar
-double minY = 999999999.0;
-
-for (const auto& fatias : matrizBruta) {
-    if (fatias.size() >= 5) {
-        double x = TerraIO::fix12ParaDouble(fatias[2]);
-        double y = TerraIO::fix12ParaDouble(fatias[3]);
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-    }
-}
-
-// 3. SETAGEM DAS CONSTANTES (A casa está pronta para os hóspedes)
-Ponto::xOrigem = minX;
-Ponto::yOrigem = minY;
-
-// 4. CARGA DOS PONTOS (Agora sim, o construtor faz X_global - X_origem)
-std::vector<Ponto> poolPontos;
-poolPontos.reserve(matrizBruta.size());
-for (const auto& fatias : matrizBruta) {
-    poolPontos.push_back(TerraLaboratorio::AdaptadorUniversal::criarPonto(fatias));
-}
-
-*/
 
 /*
 #include "terrapleno.h"
