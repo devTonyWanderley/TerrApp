@@ -7,7 +7,7 @@
 class MalhaTopologica {
 public:
     // O que já temos
-    std::vector<Face> faces;
+    std::vector<TerraCore::Face> faces;
     std::vector<Aresta> arestas;
 
     // A Inteligência Adicional (Para lidar com Interseções e Ilhas)

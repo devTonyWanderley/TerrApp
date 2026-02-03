@@ -39,7 +39,27 @@ struct Aresta {
     bool operator<(const Aresta& other) const { return v < other.v; }
 };
 
+namespace TerraCore {
+
 struct Face {
+    // 1. Vértices (Os donos da geometria)
+    // Guardamos os índices do pool de pontos para economizar RAM.
+    // v[0], v[1], v[2] sempre em ordem ANTI-HORÁRIA (CCW).
     std::array<size_t, 3> v;
-    // Implementar rotação cíclica no construtor futuramente
+
+    // 2. Vizinhos (A rede de navegação)
+    // f[i] é o índice da Face vizinha oposta ao vértice v[i].
+    // Se f[i] == 9999999, significa que é uma borda (vácuo).
+    std::array<size_t, 3> f;
+
+    // Construtor simples
+    Face(size_t v0, size_t v1, size_t v2)
+        : v({v0, v1, v2}), f({9999999, 9999999, 9999999}) {}
+
+    // Função auxiliar para saber se a face toca o Super-Triângulo
+    // Supondo que os 3 primeiros pontos do pool (0, 1, 2) sejam os fantasmas.
+    bool ehFantasma() const {
+        return (v[0] < 3 || v[1] < 3 || v[2] < 3);
+    }
 };
+}

@@ -3,31 +3,21 @@
 #include <QGraphicsScene>
 #include <QWheelEvent>
 #include <QKeyEvent>
-#include <vector>
-#include "ponto.h" // O View "enxerga" o Core
+#include "ponto.h"
 
 namespace TerraView {
-
-class PainelCad : public QGraphicsView {
+class painelCad : public QGraphicsView {
     Q_OBJECT
-
 public:
-    explicit PainelCad(QWidget* parent = nullptr);
-
-    // Alimenta a tela com os dados do motor geométrico
-    void carregarPontos(const std::vector<Ponto>& pontos);
-
-    // O "Z" do CAD (Zoom Extents)
-    void zoomTotal();
-
+    explicit painelCad(QWidget* parent = nullptr);
+    void carregarTeste(); // Apenas para validar a cruz e o ponto
 protected:
-    // Eventos de baixo nível para controle total
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
-
+    void recalcularHorizonte();
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void zoomLimites();
 private:
     QGraphicsScene* cena;
-    const double fatorZoom = 1.15;
 };
-
-} // namespace TerraView
+}

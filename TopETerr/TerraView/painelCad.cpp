@@ -1,57 +1,93 @@
 #include "painelCad.h"
-#include <QGraphicsEllipseItem>
 
 namespace TerraView {
 
-PainelCad::PainelCad(QWidget* parent) : QGraphicsView(parent) {
+painelCad::painelCad(QWidget* parent) : QGraphicsView(parent) {
     cena = new QGraphicsScene(this);
     setScene(cena);
-
-    // Estética CAD: Fundo preto absoluto
     setBackgroundBrush(Qt::black);
-    setRenderHint(QPainter::Antialiasing);
 
-    // Permite arrastar o desenho com o mouse
-    setDragMode(QGraphicsView::ScrollHandDrag);
 
-    // Remove as barras de rolagem (limpeza visual)
+    setAlignment(Qt::AlignCenter);
+
+
+    // 1. Desativa as barras de rolagem DE VEZ (elas roubam o clique do Pan)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse); // Zoom foca no mouse
-    setResizeAnchor(QGraphicsView::AnchorUnderMouse);
-}
 
-void PainelCad::carregarPontos(const std::vector<Ponto>& pontos) {
-    cena->clear();
-    for (const auto& p : pontos) {
-        // Adiciona um ponto vermelho (0.2m de diâmetro)
-        cena->addEllipse(p.x - 5.0, p.y - 5.0, 10.0, 10.0, QPen(Qt::red), QBrush(Qt::red));
-    }
+    // 2. Garante que o modo de arrasto é a Mãozinha
+    setDragMode(QGraphicsView::ScrollHandDrag);
 
-    // Define que o 'papel' tem exatamente o tamanho da obra
-    QRectF limites = cena->itemsBoundingRect();
-    cena->setSceneRect(limites);
+    // 3. O SEGREDO DO PAN INVERTIDO:
+    // Quando invertemos o Y com scale(1, -1), o Qt pode se perder no sinal do deslocamento.
+    // Esta flag garante que a renderização e a interação usem a matriz de forma direta.
+    setOptimizationFlag(QGraphicsView::DontSavePainterState);
 
-    // Força o enquadramento total
-    fitInView(limites, Qt::KeepAspectRatio);
-    zoomTotal();
-}
+    // 1. A ÂNCORA: Aqui você dá a ordem ao processador
+    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
 
-void PainelCad::zoomTotal() {
-    fitInView(cena->itemsBoundingRect(), Qt::KeepAspectRatio);
-    // No construtor PainelCad
-    // Se quiser que o Y cresça para cima (Norte), descomente a linha abaixo:
+    // 2. O PAPEL: Definimos um canteiro de 200m (Suficiente para nossa cruz e ponto)
+    // Sem isso, a âncora "escorrega" porque não tem referencial fixo.
+    //setSceneRect(-100, -100, 200, 200); -> remover o referencial fixo...
+
+    // 3. A GEOMETRIA: Cruz no zero e ponto no (10,10)
+    cena->addLine(-10, 0, 10, 0, QPen(Qt::green, 0));
+    cena->addLine(0, -10, 0, 10, QPen(Qt::green, 0));
+    cena->addEllipse(10 - 0.5, 10 - 0.5, 1, 1, QPen(Qt::red, 0), QBrush(Qt::red));
+
+    // 4. O NORTE: Inversão do eixo Y
     scale(1, -1);
 }
 
-void PainelCad::wheelEvent(QWheelEvent* event) {
-    if (event->angleDelta().y() > 0) scale(fatorZoom, fatorZoom);
-    else scale(1.0 / fatorZoom, 1.0 / fatorZoom);
+// 2. A Lógica de Expansão do Horizonte
+void painelCad::recalcularHorizonte() {
+    // Pegamos a área que a lente (view) está enxergando agora (em metros/coordenadas de cena)
+    QRectF areaVisivel = mapToScene(viewport()->rect()).boundingRect();
+
+    // Pegamos a área ocupada pelos desenhos (a cruz e o ponto)
+    QRectF areaObjetos = cena->itemsBoundingRect();
+
+    // O novo tamanho do papel será a UNIÃO entre o que vemos e o que temos,
+    // com uma margem generosa para que a "mãozinha" sempre tenha onde puxar.
+    double margem = areaVisivel.width() * 2.0;
+    setSceneRect(areaVisivel.united(areaObjetos).adjusted(-margem, -margem, margem, margem));
 }
 
-void PainelCad::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Z) zoomTotal();
+void painelCad::wheelEvent(QWheelEvent* event) {
+    double escala = (event->angleDelta().y() > 0) ? 1.15 : 0.85;
+    scale(escala, escala);
+
+    recalcularHorizonte(); // Expande o horizonte logo após o zoom
+}
+
+// Crucial: Precisamos atualizar o horizonte quando soltamos o mouse após um PAN
+void painelCad::mouseReleaseEvent(QMouseEvent* event) {
+    recalcularHorizonte();
+    QGraphicsView::mouseReleaseEvent(event);
+}
+
+// Implementação mínima para satisfazer o Linker
+void painelCad::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Z || event->key() == Qt::Key_E) {
+        zoomLimites();
+    }
     QGraphicsView::keyPressEvent(event);
 }
 
-} // namespace TerraView
+void painelCad::zoomLimites() {
+    // 1. Pergunta à cena: "Qual é o retângulo que envolve tudo o que foi desenhado?"
+    // Isso inclui a Cruz Verde e o Ponto Vermelho (e futuramente toda a malha)
+    QRectF limitesDaObra = cena->itemsBoundingRect();
+
+    // Segurança: se a cena estiver vazia, não há o que enquadrar
+    if (limitesDaObra.isEmpty()) return;
+
+    // 2. A Mágica do Qt: ajusta a escala e a translação para caber na tela
+    // Qt::KeepAspectRatio garante que o círculo não vire uma elipse (mantém a proporção)
+    fitInView(limitesDaObra, Qt::KeepAspectRatio);
+
+    // 3. Após o enquadramento, atualizamos o horizonte para permitir o PAN imediato
+    recalcularHorizonte();
+}
+
+}
