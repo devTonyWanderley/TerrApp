@@ -3,6 +3,8 @@
 #include "geometria_base.h"
 #include <vector>
 #include <variant>
+#include "ponto.h"
+#include "superficie.h"
 
 // Repositório central (Pool) de geometrias para permitir o compartilhamento de segmentos.
 // É o motor da topologia paramétrica, permitindo que mudanças em um eixo propaguem para bordos e lotes.
@@ -84,13 +86,6 @@ double orientar2d(const Ponto& a, const Ponto& b, const Ponto& c) {
     return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-void superficie::legalizarAresta(size_t idFace, size_t idVizinho) {
-    // 1. Identificamos os 4 pontos do quadrilátero
-    // 2. Chamamos inCircle(A, B, C, D)
-    // 3. Se resultado > 0, executamos o SWAP das diagonais
-    // 4. Se houve SWAP, devemos testar recursivamente os novos vizinhos
-}
-
 namespace TerraCore {
 
 // A autoridade máxima da nulidade no sistema
@@ -106,38 +101,4 @@ constexpr double EPSILON_GEOMETRICO = 1e-12;
 inline bool ehNulo(double valor) {
     return (valor > -EPSILON_GEOMETRICO) && (valor < EPSILON_GEOMETRICO);
 }
-}
-
-Face* superficie::localizarPonto(Ponto p, Face* faceInicial) {
-    Face* atual = faceInicial;
-
-    while (true) {
-        bool pulou = false;
-        for (int i = 0; i < 3; ++i) {
-            // Se o ponto está à DIREITA da aresta i, o alvo está para lá
-            if (orientar2d(atual->v[i], atual->v[(i+1)%3], p) < -EPSILON_GEOMETRICO) {
-                atual = atual->vizinhos[i]; // SALTO!
-                pulou = true;
-                break; // Sai do for e continua o while no novo triângulo
-            }
-        }
-        if (!pulou) return atual; // Se não está à direita de nenhuma, está DENTRO.
-    }
-}
-
-
-void superficie::subdividir(size_t idFacePai, size_t idPontoNovo) {
-    Face pai = poolFaces[idFacePai]; // A face que será "furada"
-
-    // 1. Criamos as 3 novas faces (A, B, C)
-    // Mantendo a ordem CCW: (Pai.v0, Pai.v1, P), (Pai.v1, Pai.v2, P), (Pai.v2, Pai.v0, P)
-    size_t idA = poolFaces.size();
-    size_t idB = idA + 1;
-    size_t idC = idA + 2;
-
-    // 2. Conectamos as entranhas (Vizinhos internos)
-    // A vizinha da Face A na aresta que vai para o centro é a B e a C...
-
-    // 3. Herança de Sangue (Vizinhos externos)
-    // A Face A herda o vizinho que o Pai tinha na aresta v0-v1.
 }

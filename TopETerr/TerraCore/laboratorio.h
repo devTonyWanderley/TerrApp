@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "ponto.h"
 #include "geometria_base.h"
+#include <vector>
 
 namespace Quadtree {
 /**
@@ -47,7 +48,7 @@ struct ComparadorMorton {
     }
 };
 
-void exportarParaSVG(const std::string& nome, const std::vector<Ponto>& pontos, const std::vector<Face>& faces) {
+void exportarParaSVG(const std::string& nome, const std::vector<Ponto>& pontos, const std::vector<TerraCore::Face>& faces) {
     std::ofstream arq(nome);
     arq << "<svg xmlns='http://www.w3.org' viewBox='0 0 1000 1000'>\n";
 
@@ -69,7 +70,7 @@ struct SuperficieInicial {
     std::vector<Ponto> vertices;
     // Face #0: conecta os índices 0, 1 e 2
     // Usamos índices 0, 1, 2 porque estes serão os primeiros no pool
-    Face faceMestra{0, 1, 2};
+    TerraCore::Face faceMestra{0, 1, 2};
 
     // Gerador do Super-Triângulo baseado no Cercado (Bounding Box)
     static SuperficieInicial criar(double minX, double minY, double maxX, double maxY) {
@@ -97,7 +98,7 @@ struct SuperficieInicial {
 
 inline void exportarParaSVG(const std::string& nome,
                             const std::vector<Ponto>& pontos,
-                            const std::vector<Face>& faces,
+                            const std::vector<TerraCore::Face>& faces,
                             double minX, double minY, double maxX, double maxY) {
     std::ofstream arq(nome);
     if (!arq.is_open()) return;
