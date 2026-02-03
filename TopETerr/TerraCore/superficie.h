@@ -1,69 +1,129 @@
 #pragma once
-#include "geometria_base.h" // Onde mora a struct Face
-#include <map>
-#include <set>
+#include "calculo.h"
 #include <vector>
-#include <stack>
-#include "ponto.h"
 
-class MalhaTopologica {
-public:
-    // O que já temos
-    std::vector<TerraCore::Face> faces;
-    std::vector<Aresta> arestas;
+namespace TerraCore
+{
+    namespace Quadtree
+    {
+        struct NoQuadtree
+        {
+            BBox limites;
+            int nivel = 0;
+            std::array<size_t, 4> idFilhos = {0, 0, 0, 0};
+            std::vector<size_t> indicePontos;
+        };
+        class Highlander
+        {
+        public:
+            std::vector<NoQuadtree>& poolNos;
+            const std::vector<Ponto>& poolPontos;
 
-    // A Inteligência Adicional (Para lidar com Interseções e Ilhas)
-    // Mapeia uma Aresta para as Faces que a compartilham (máximo 2 em malhas "manifold")
-    std::map<size_t, std::vector<size_t>> adjacenciaArestaFace;
+            Highlander(std::vector<NoQuadtree>& nos, const std::vector<Ponto>& pontos): poolNos(nos), poolPontos(pontos) {}
 
-    // Métodos de Reflexão:
-    void reconstruirTopologia() {
-        // Varre as faces e preenche quem é vizinho de quem via ID da Aresta
-        // Se uma aresta tiver apenas 1 face, ela é Borda (limite da ilha)
-        // Se tiver 2, é uma conexão interna.
-        // Se tiver 3 ou mais, temos um erro topológico (interseção inválida).
+            void inserir(size_t idPonto);
+            void subdividir(size_t idNo);
+        };
     }
+
+    class superficie
+    {
+    public:
+        std::vector<Ponto> poolPontos;
+        std::vector<Face> poolFaces;
+        std::vector<Quadtree::NoQuadtree> poolNos;
+        Quadtree::Highlander indexador;
+        superficie(std::vector<Ponto> pontosProntos, BBox limitesIniciais);
+        void processarTudo();
+    };
+}
+
+
+/*
+#pragma once
+#include "calculo.h"  // Já traz geometria.h e as ferramentas
+#include <stack>
+#include <vector>
+
+namespace TerraCore {
+
+// --- FERRAMENTA AUXILIAR ---
+namespace Quadtree {
+struct NoQuadtree {
+    BBox limites;
+    int nivel;
+
+    // Se idFilhos[0] == 0, o nó é uma FOLHA.
+    // Armazenamos o ID (índice no pool) dos 4 filhos.
+    std::array<size_t, 4> idFilhos = {0, 0, 0, 0};
+
+    // Armazena os índices dos pontos que pertencem a este nó
+    std::vector<size_t> indicesPontos;
+
+    NoQuadtree() : nivel(0) {}
 };
+
+class Highlander {
+private:
+    // O "Coração de Memória": Todos os quadrados moram aqui
+    std::vector<NoQuadtree> poolNos;
+
+    // Regras de Ouro do Projeto
+    const int MAX_NIVEL = 24;  // Travagem para precisão de ~0.6mm
+    const double EPSILON = 0.001; // Tolerância de 1mm para fusão de pontos
+
+public:
+    Highlander(BBox limitesIniciais) {
+        poolNos.reserve(4096); // Alocação antecipada para evitar realocações
+        NoQuadtree raiz;
+        raiz.limites = limitesIniciais;
+        raiz.nivel = 0;
+        poolNos.push_back(raiz);
+    }
+
+    // Método principal de inserção
+    void inserir(size_t idPonto, const std::vector<Ponto>& pontosGlobais);
+
+private:
+    void subdividir(size_t idNo);
+    int calcularQuadrante(const BBox& limites, const Ponto& p);
+};
+}
 
 class superficie {
 public:
-    // O "Cérebro" da Malha
-    std::vector<Ponto> poolPontos; // Seus 531 pontos + 3 fantasmas
-    std::vector<TerraCore::Face> poolFaces;   // Onde a mágica acontece
-    std::stack<size_t> pilhaLegalizacao; // A fila para o Edge Swap
+    // O Estoque de Materiais
+    std::vector<Ponto> poolPontos;
+    std::vector<Face> poolFaces;
 
-    // Construtor enxuto:
-    // 1. Recebe o pool de pontos já preparado (com os 3 fantasmas no início).
-    // 2. Inicia o pool de faces com o Super-Triângulo (Face #0).
-    superficie(const std::vector<Ponto>& pontosProntos) : poolPontos(pontosProntos) {
+    // O Highlander agora guarda uma referência para a superfície "mãe"
+    struct Highlander {
+        superficie& mae; // O binóculo para enxergar o poolPontos
 
-        // A Face #0 sempre liga os vértices 0, 1 e 2 (nossos fantasmas)
-        TerraCore::Face faceMestra(0, 1, 2);
+        Highlander(superficie& s) : mae(s) {}
 
-        // No início, os 3 vizinhos da Face Mestra são o "vazio" (9999999)
-        faceMestra.f = {9999999, 9999999, 9999999};
+        void inserir(size_t idPonto);
+        void subdividir(size_t idNo);
+    };
 
-        poolFaces.push_back(faceMestra);
-    }
+    // Instância do Highlander que vive na superfície
+    Highlander indexador;
 
-    // Métodos que você já implementou (mova-os para dentro da classe)
-    void splitFace(size_t idFacePai, size_t idPontoNovo);
-    void legalizarAresta(size_t idFace);
+    // A Ferramenta de Ajuste Fino
+    std::stack<size_t> pilhaLegalizacao;
+
+    // Construtor: Inicia a obra com os pontos e o Super-Triângulo
+    superficie(std::vector<Ponto> pontosProntos);
+
+    // Ações de Construção (As assinaturas)
     size_t localizarPonto(const Ponto& p);
+    void splitFace(size_t idFacePai, size_t idPontoNovo);
+    void legalizarAresta(size_t idFaceCentral, size_t idFaceVizinha);
 
 private:
-    // Função auxiliar vital para a cirurgia de vizinhos
+    // Manutenção de rede: Atualiza quem é vizinho de quem
     void atualizarVizinho(size_t idVizinho, size_t idAntigo, size_t idNovo);
 };
 
-void superficie::atualizarVizinho(size_t idVizinho, size_t idAntigo, size_t idNovo) {
-    if (idVizinho == 9999999) return; // É borda, não faz nada
-
-    TerraCore::Face& v = poolFaces[idVizinho];
-    for (int i = 0; i < 3; ++i) {
-        if (v.f[i] == idAntigo) {
-            v.f[i] = idNovo;
-            return;
-        }
-    }
-}
+} // namespace TerraCore
+*/

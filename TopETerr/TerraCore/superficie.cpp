@@ -1,95 +1,201 @@
 #include "superficie.h"
 
+namespace TerraCore
+{
+double Ponto::xOrigem = 0.0;
+double Ponto::yOrigem = 0.0;
+    superficie::superficie(std::vector<Ponto> pontosProntos, BBox limitesIniciais):
+        poolPontos(std::move(pontosProntos)), indexador(poolNos, poolPontos)
+    {
+        Quadtree::NoQuadtree raiz;
+        raiz.limites = limitesIniciais;
+        poolNos.push_back(raiz);
 
+        poolFaces.push_back(Face(0, 1, 2));
+    }
 
-TerraCore::Face* superficie::localizarPonto(Ponto p, TerraCore::Face* faceInicial) {
-    TerraCore::Face* atual = faceInicial;
+    void Quadtree::Highlander::inserir(size_t idPonto)
+    {
+        size_t idAtual = 0;
+        const Ponto& pNovo = poolPontos[idPonto];
 
-    while (true) {
-        bool pulou = false;
-        for (int i = 0; i < 3; ++i) {
-            // Se o ponto está à DIREITA da aresta i, o alvo está para lá
-            if (orientar2d(atual->v[i], atual->v[(i+1)%3], p) < -EPSILON_GEOMETRICO) {
-                atual = atual->vizinhos[i]; // SALTO!
-                pulou = true;
-                break; // Sai do for e continua o while no novo triângulo
+        while(true)
+        {
+            NoQuadtree& no = poolNos[idAtual];
+
+            if(no.idFilhos[0] == 0)
+            {
+                if(no.indicePontos.empty())
+                {
+                    no.indicePontos.push_back(idPonto);
+                    break;
+                }
+                else
+                {
+                    int quad = no.limites.calcularQuadrante(pNovo);
+                    idAtual = no.idFilhos[quad];
+                }
             }
         }
-        if (!pulou) return atual; // Se não está à direita de nenhuma, está DENTRO.
+    }
+
+    void Quadtree::Highlander::subdividir(size_t idNo)
+    {
+        NoQuadtree& pai = poolNos[idNo];
+        double cx = pai.limites.centroX(),
+            cy = pai.limites.centroY(),
+               xMin = pai.limites.minX,
+               xMax = pai.limites.maxX,
+               yMin = pai.limites.minY,
+            yMax = pai.limites.maxY;
+        std::array<BBox, 4> bboxes =
+        {
+            BBox{cx, cy, xMax, yMax},
+            BBox{xMin, cy, cx, yMax},
+            BBox{xMin, yMin, cx, cy},
+            BBox{cx, yMin, xMax, cy}
+        };
+
+        size_t idPrimeiroFilho = poolNos.size();
+        int nivelPai = pai.nivel;
+
+        for(int i = 0; i < 4; i++)
+        {
+            NoQuadtree filho;
+            filho.limites = bboxes[i];
+            filho.nivel = nivelPai + 1;
+            poolNos.push_back(filho);
+
+            poolNos[idNo].idFilhos[i] = idPrimeiroFilho + i;
+        }
+
+        if(!poolNos[idNo].indicePontos.empty())
+        {
+            size_t idPontoAntigo = poolNos[idNo].indicePontos[0];
+            poolNos[idNo].indicePontos.clear();
+            inserir(idPontoAntigo);
+        }
+        //  ...
     }
 }
 
 
-void superficie::subdividir(size_t idFacePai, size_t idPontoNovo) {
-    TerraCore::Face pai = poolFaces[idFacePai]; // A face que será "furada"
+/*
+#include "superficie.h"
 
-    // 1. Criamos as 3 novas faces (A, B, C)
-    // Mantendo a ordem CCW: (Pai.v0, Pai.v1, P), (Pai.v1, Pai.v2, P), (Pai.v2, Pai.v0, P)
-    size_t idA = poolFaces.size();
-    size_t idB = idA + 1;
-    size_t idC = idA + 2;
+namespace TerraCore {
 
-    // 2. Conectamos as entranhas (Vizinhos internos)
-    // A vizinha da Face A na aresta que vai para o centro é a B e a C...
+    superficie::superficie(std::vector<Ponto> pontosProntos)
+        : poolPontos(std::move(pontosProntos)) {
 
-    // 3. Herança de Sangue (Vizinhos externos)
-    // A Face A herda o vizinho que o Pai tinha na aresta v0-v1.
+        // Nascimento da Malha: Face #0 liga os 3 vértices fantasmas
+        Face super(0, 1, 2);
+        poolFaces.push_back(super);
+    }
+
+
+    void Quadtree::Highlander::inserir(size_t idPonto, const std::vector<Ponto>& pontos) {
+        size_t idAtual = 0; // Começa sempre na Raiz
+        const Ponto& pNovo = pontos[idPonto];
+
+        while (true) {
+            NoQuadtree& no = poolNos[idAtual];
+
+            // 1. Verificamos se o nó é uma FOLHA (não tem filhos)
+            if (no.idFilhos[0] == 0) {
+                if (no.indicesPontos.empty()) {
+                    // Canteiro vazio: o ponto toma posse
+                    no.indicesPontos.push_back(idPonto);
+                    break;
+                } else {
+                    // Canteiro ocupado: chamamos o duelo!
+                    const Ponto& pAntigo = pontos[no.indicesPontos[0]];
+
+                    // Teste de Proximidade (Usando a álgebra de vetores)
+                    double distSq = std::pow(pNovo.x - pAntigo.x, 2) +
+                                    std::pow(pNovo.y - pAntigo.y, 2);
+
+                    if (distSq < (EPSILON * EPSILON)) {
+                        // SÓ PODE HAVER UM! (O Highlander vence)
+                        // Ignoramos o novo ponto para manter a malha limpa.
+                        break;
+                    } else if (no.nivel < MAX_NIVEL) {
+                        // São diferentes: Subdivide para dar espaço aos dois.
+                        subdividir(idAtual);
+                        // Não damos break: o while(true) vai reavaliar o nó
+                        // e empurrar o pNovo e o pAntigo para os novos filhos.
+                    } else {
+                        // Atingimos o limite do silício (0.6mm): funde por força bruta.
+                        break;
+                    }
+                }
+            } else {
+                // 2. O nó já é um galpão dividido: Descemos um andar.
+                int quadrante = no.limites.calcularQuadrante(pNovo);
+                idAtual = no.idFilhos[quadrante];
+            }
+        }
+    }
+
+    void Quadtree::Highlander::subdividir(size_t idNo) {
+        // ... Lógica de criar os 4 filhos e mover o ponto antigo para o quadrante certo ...
+        // 1. Criamos os 4 novos filhos no estoque (poolNos)
+        // Pegamos o índice onde os novos filhos começarão
+        size_t idPrimeiroFilho = poolNos.size();
+        NoQuadtree& pai = poolNos[idNo];
+
+        // Calculamos os limites de cada quadrante usando a ferramenta BBox
+        double cx = pai.limites.centroX();
+        double cy = pai.limites.centroY();
+        double minX = pai.limites.minX;
+        double maxX = pai.limites.maxX;
+        double minY = pai.limites.minY;
+        double maxY = pai.limites.maxY;
+
+        // 2. Definimos as 4 novas "caixas" (BBox)
+        // Ordem: 0:NE, 1:NW, 2:SW, 3:SE
+        std::array<BBox, 4> limitesFilhos = {
+            BBox{cx, cy, maxX, maxY}, // NE
+            BBox{minX, cy, cx, maxY}, // NW
+            BBox{minX, minY, cx, cy}, // SW
+            BBox{cx, minY, maxX, cy}  // SE
+        };
+
+        // 3. Populamos o pool com os novos nós
+        for (int i = 0; i < 4; ++i) {
+            NoQuadtree filho;
+            filho.limites = limitesFilhos[i];
+            filho.nivel = pai.nivel + 1;
+            poolNos.push_back(filho);
+
+            // O pai guarda o "contato" do filho
+            pai.idFilhos[i] = idPrimeiroFilho + i;
+        }
+
+        // 4. MOVIMENTAÇÃO DE CARGA: O ponto que estava no pai agora tem que descer
+        // Como o pai agora é um nó interno, ele não pode mais segurar pontos.
+        if (!pai.indicesPontos.empty()) {
+            size_t idPontoAntigo = pai.indicesPontos[0];
+            pai.indicesPontos.clear(); // O pai agora é apenas um "guia"
+
+            // Re-inserimos o ponto antigo para que ele ache seu novo quadrante
+            // Isso garante que o ponto antigo e o novo fiquem em folhas separadas.
+            inserir(idPontoAntigo, mae.poolPontos);
+        }
+    }
+
+    void superficie::atualizarVizinho(size_t idVizinho, size_t idAntigo, size_t idNovo) {
+        if (idVizinho == VAZIO) return;
+        Face& v = poolFaces[idVizinho];
+        for (int i = 0; i < 3; ++i) {
+            if (v.f[i] == idAntigo) {
+                v.f[i] = idNovo;
+                return;
+            }
+        }
+    }
+
+    // Os métodos LocalizarPonto, SplitFace e LegalizarAresta
+    // serão escritos aqui, um por um, com calma, nos próximos passos.
 }
-
-void superficie::splitFace(size_t idFacePai, size_t idPontoNovo) {
-    // 1. Resgatamos a face que será destruída
-    TerraCore::Face pai = poolFaces[idFacePai];
-    size_t P = idPontoNovo;
-
-    // 2. Criamos as três filhas
-    // v0, v1, v2 são os vértices originais da face pai
-    size_t v0 = pai.v[0];
-    size_t v1 = pai.v[1];
-    size_t v2 = pai.v[2];
-
-    // 3. Instanciamos as novas faces no pool
-    size_t idA = idFacePai; // A primeira filha REOCUPA o lugar da mãe
-    size_t idB = poolFaces.size();
-    size_t idC = idB + 1;
-
-    TerraCore::Face filhaA(v0, v1, P);
-    TerraCore::Face filhaB(v1, v2, P);
-    TerraCore::Face filhaC(v2, v0, P);
-
-    // 4. GESTÃO DE VIZINHOS (O segredo da Opção A)
-
-    // Vizinhos Externos: Herdam o que a mãe tinha
-    filhaA.f[0] = pai.f[0]; // Oposto ao P (lado v0-v1)
-    filhaB.f[0] = pai.f[1]; // Oposto ao P (lado v1-v2)
-    filhaC.f[0] = pai.f[2]; // Oposto ao P (lado v2-v0)
-
-    // Vizinhos Internos: As irmãs se dão as mãos
-    filhaA.f[1] = idC; filhaA.f[2] = idB;
-    filhaB.f[1] = idA; filhaB.f[2] = idC;
-    filhaC.f[1] = idB; filhaC.f[2] = idA;
-
-    // 5. ATUALIZAÇÃO DOS VIZINHOS EXTERNOS (Avisar os vizinhos da mãe)
-    // O vizinho original da mãe precisa saber que agora o vizinho dele mudou!
-    atualizarVizinho(pai.f[0], idFacePai, idA);
-    atualizarVizinho(pai.f[1], idFacePai, idB);
-    atualizarVizinho(pai.f[2], idFacePai, idC);
-
-    // 6. EFETIVAÇÃO
-    poolFaces[idA] = filhaA;
-    poolFaces.push_back(filhaB);
-    poolFaces.push_back(filhaC);
-
-    // 7. LEGALIZAÇÃO (A "Onda" de Delaunay)
-    // Colocamos as 3 arestas externas na pilha para o Edge Swap
-    pilhaLegalizacao.push(idA);
-    pilhaLegalizacao.push(idB);
-    pilhaLegalizacao.push(idC);
-}
-
-
-void superficie::legalizarAresta(size_t idFace, size_t idVizinho) {
-    // 1. Identificamos os 4 pontos do quadrilátero
-    // 2. Chamamos inCircle(A, B, C, D)
-    // 3. Se resultado > 0, executamos o SWAP das diagonais
-    // 4. Se houve SWAP, devemos testar recursivamente os novos vizinhos
-}
+*/

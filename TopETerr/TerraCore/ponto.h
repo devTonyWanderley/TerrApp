@@ -2,7 +2,6 @@
 #include <variant>
 #include <string>
 #include <utility>
-#include <algorithm>
 
 struct idAmostra
 {

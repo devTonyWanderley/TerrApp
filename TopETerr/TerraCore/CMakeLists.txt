@@ -23,22 +23,21 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 
 add_library(TerraCore STATIC
-  terracore.cpp
-  terracore.h
-  ponto.h
-  geometria_base.h
-  banco_segmentos.h
-  tracado.h
-  superficie.h superficie.cpp
+  # --- O NOVO MOTOR (A meta é que o projeto seja só isso) ---
+  geometria.h
+  calculo.h
+  superficie.h
+  superficie.cpp
+
+  # --- O LEGADO DE IO (Aguardando unificação em TerraIO) ---
   terraio.h terraio.cpp
-  linkserialbase.h linkserialbase.cpp
-  arquiteturaterracore.qmt
-  formatEstrito.h
   motorArquivoFixo.h
-  laboratorio.h
   adaptadorPontos.h
-  quadTree.h
-  quadTree.cpp
+  formatEstrito.h
+  linkserialbase.h linkserialbase.cpp
+
+  # --- O SISTEMA ANTIGO (Será migrado para superficie/calculo) ---
+  #quadTree.h quadTree.cpp
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)
