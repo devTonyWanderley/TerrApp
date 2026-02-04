@@ -3,7 +3,6 @@
 #include <QGraphicsScene>
 #include <QWheelEvent>
 #include <QKeyEvent>
-#include "ponto.h"
 
 namespace TerraView {
 class painelCad : public QGraphicsView {

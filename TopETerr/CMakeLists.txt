@@ -12,6 +12,7 @@ qt_standard_project_setup()
 # Isso faz o CMake ler o projeto de engenharia primeiro
 add_subdirectory(TerraCore)
 add_subdirectory(TerraView)
+add_subdirectory(TerraIO)
 
 # 2. Criamos o executável com todos os arquivos
 qt_add_executable(TopETerr
@@ -30,6 +31,7 @@ target_link_libraries(TopETerr
         Qt6::Widgets
         TerraCore
         TerraView
+        TerraIO
 )
 
 # --- O restante permanece igual (Traduções e Deploy) ---

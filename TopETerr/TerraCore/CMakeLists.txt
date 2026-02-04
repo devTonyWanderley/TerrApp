@@ -28,16 +28,6 @@ add_library(TerraCore STATIC
   calculo.h
   superficie.h
   superficie.cpp
-
-  # --- O LEGADO DE IO (Aguardando unificação em TerraIO) ---
-  terraio.h terraio.cpp
-  motorArquivoFixo.h
-  adaptadorPontos.h
-  formatEstrito.h
-  linkserialbase.h linkserialbase.cpp
-
-  # --- O SISTEMA ANTIGO (Será migrado para superficie/calculo) ---
-  #quadTree.h quadTree.cpp
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)
