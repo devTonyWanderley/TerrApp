@@ -3,6 +3,8 @@
 #include <variant>
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <cmath>
 
 namespace TerraCore {
 
@@ -40,28 +42,33 @@ struct vNoTracado {
 
 struct Ponto {
     // Registradores Estáticos da Obra (O Marco Zero)
-    static double xOrigem;
-    static double yOrigem;
+    static double xOrigem, yOrigem;
+
+    // Chave primária
+    uint64_t dna = 0;
 
     // Coordenadas Locais (Alta Precisão)
-    double x, y, z;
+    double x, y;
+    int32_t zFix;
 
     // A Versatilidade: Monostate (vazio), Amostra (campo) ou Traçado (projeto)
     std::variant<std::monostate, idAmostra, vNoTracado> dados;
 
-    // Construtor Básico
-    Ponto(double xG = 0, double yG = 0, double zG = 0)
-        : x(xG - xOrigem), y(yG - yOrigem), z(zG), dados(std::monostate{}) {}
+    // Construtor: Nasce Local, gera DNA e fixa Cota
+    Ponto(double xG, double yG, double zG, std::string id = "", std::string attr = "")
+        : x(xG - xOrigem), y(yG - yOrigem)
+    {
+        // 1. Fixar a Cota
+        zFix = static_cast<int32_t>(std::round(zG * 10000.0));
 
-    // Construtor de Levantamento (Com limpeza de strings)
-    Ponto(double xG, double yG, double zG, std::string id, std::string attr)
-        : x(xG - xOrigem), y(yG - yOrigem), z(zG),
-        dados(idAmostra{std::move(id), std::move(attr)}) {}
+        // 3. Atribuir Metadados (se houver)
+        if (!id.empty()) {
+            dados = idAmostra{id, attr};
+        }
+    }
 
-    // Interface com o Mundo Externo (UTM/Global)
-    inline double xGlobal() const { return x + xOrigem; }
-    inline double yGlobal() const { return y + yOrigem; }
-    inline double zGlobal() const { return z; }
+    // Métodos de conveniência
+    inline double z() const { return zFix / 10000.0; }
 };
 
 // --- A CÉLULA: FACE ---

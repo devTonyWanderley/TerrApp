@@ -10,6 +10,7 @@ set(CMAKE_AUTORCC ON)
 # Cria a biblioteca estática
 add_library(TerraIO STATIC
 leitor.h
+../TerraCore/geometria.h
 )
 
 # Faz a ligação: o View precisa "enxergar" o Core (Pontos e Faces) e o Qt
