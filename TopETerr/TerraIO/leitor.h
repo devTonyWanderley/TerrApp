@@ -119,11 +119,14 @@ public:
 
         if(matriz.empty()) return resultado;
 
-        double minX = 1e18, minY = 1e18;
+        uint32_t minX = 0xfffffff, minY = 0xfffffff;
         for(const auto& linha : matriz)
         {
             if(linha.size() < 5) continue;
-            double yG = fix12ParaDouble(linha[2]), xG = fix12ParaDouble(linha[3]);
+            uint32_t yG = static_cast<uint32_t>(std::stol(linha[2]));
+            uint32_t xG = static_cast<uint32_t>(std::stol(linha[3]));
+            //uint32_t zG = static_cast<uint32_t>(std::stol(linha[4]));
+            //double yG = fix12ParaDouble(linha[2]), xG = fix12ParaDouble(linha[3]);
             if(xG < minX) minX = xG;
             if(yG < minY) minY = yG;
         }
@@ -135,10 +138,10 @@ public:
         for(const auto& linha : matriz)
         {
             if(linha.size() < 5) continue;
-            double yG = fix12ParaDouble(linha[2]);
-            double xG = fix12ParaDouble(linha[3]);
-            double zG = fix12ParaDouble(linha[4]);
-            resultado.pontos.emplace_back(xG, yG, zG, linha[0], linha[1]);
+            uint32_t yG = static_cast<uint32_t>(std::stol(linha[2]));
+            uint32_t xG = static_cast<uint32_t>(std::stol(linha[3]));
+            uint32_t zG = static_cast<uint32_t>(std::stol(linha[4]));
+            resultado.pontos.emplace_back(xG, yG, zG, TerraCore::idAmostra(linha[0], linha[1]));
         }
 
         return resultado;

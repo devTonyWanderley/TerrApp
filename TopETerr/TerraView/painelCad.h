@@ -1,22 +1,39 @@
 #pragma once
-#include <QGraphicsView>
-#include <QGraphicsScene>
-#include <QWheelEvent>
-#include <QKeyEvent>
+#include <QWidget>
+#include <QPainter>
+#include <QTimer>
+#include <vector>
+#include "geometria.h" // Para enxergar o Ponto
 
 namespace TerraView {
-class painelCad : public QGraphicsView {
+
+class painelCad : public QWidget {
     Q_OBJECT
+
 public:
     explicit painelCad(QWidget* parent = nullptr);
-    void carregarTeste(); // Apenas para validar a cruz e o ponto
+
+    // O comando que o main dará para iniciar a obra
+    void setPontos(const std::vector<TerraCore::Ponto>& pontos);
+
 protected:
-    void wheelEvent(QWheelEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
-    void recalcularHorizonte();
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    void zoomLimites();
+    // Onde o "entalhe" visual acontece
+    void paintEvent(QPaintEvent* event) override;
+
+private slots:
+    // A batida do relógio para a animação
+    void animarPasso();
+
 private:
-    QGraphicsScene* cena;
+    std::vector<TerraCore::Ponto> _estoque;
+    std::vector<TerraCore::Ponto> _visiveis;
+
+    QTimer* _cronometro;
+    size_t _proximoIndice = 0;
+
+    // Controle de Câmera (Simples para começar)
+    double _zoom = 4.0;
+    double _offsetX = 250.0;
+    double _offsetY = 50.0;
 };
 }

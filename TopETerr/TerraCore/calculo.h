@@ -6,20 +6,31 @@
 
 namespace TerraCore {
 
-// Dentro do namespace TerraCore em calculo.h
 struct BBox {
-    double minX, minY, maxX, maxY;
-    inline double centroX() const { return (minX + maxX) * 0.5; }
-    inline double centroY() const { return (minY + maxY) * 0.5; }
+    uint32_t xMin, yMin, xMax, yMax;
 
-    // Ferramenta cirúrgica para o Highlander
+    // Ferramentas de Precisão Inteira
+    inline uint32_t centroX() const { return (xMin + ((xMax - xMin) / 2)); }
+    inline uint32_t centroY() const { return (yMin + ((yMax - yMin) / 2)); }
+
+    /**
+     * @brief Identifica o quadrante de um ponto (Ponto agora usa uint32_t)
+     */
     inline int calcularQuadrante(const Ponto& p) const {
-        bool norte = p.y >= centroY();
-        bool leste = p.x >= centroX();
-        if (norte) return leste ? 0 : 1; // NE : NW
-        return leste ? 3 : 2;           // SE : SW
+        // Comparação direta entre inteiros (xl, yl do Ponto)
+        bool norte = p.yl >= centroY();
+        bool leste = p.xl >= centroX();
+
+        if (norte) return leste ? 0 : 1; // 0:NE, 1:NW
+        return leste ? 3 : 2;           // 3:SE, 2:SW
+    }
+
+    // Check if a point is inside (Fast Integer Math)
+    inline bool contem(const Ponto& p) const {
+        return (p.xl >= xMin && p.xl <= xMax && p.yl >= yMin && p.yl <= yMax);
     }
 };
+
 
 /**
      * @brief Validação de Nulidade (O "Zero do Mundo Real")
@@ -30,55 +41,72 @@ inline bool ehNulo(double valor) {
 }
 
 /**
-     * @brief Predicado de Orientação (Sentido de Giro / Produto Vetorial 2D)
-     * @return > 0: Anti-horário (Esquerda)
-     * @return < 0: Horário (Direita)
-     * @return 0: Colinear (Atenção: Raro, mas perigoso!)
-     */
-inline double orientar2d(const Ponto& a, const Ponto& b, const Ponto& c) {
-    // Determinante 2x2: (Bx-Ax)(Cy-Ay) - (By-Ay)(Cx-Ax)
-    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+ * @brief Predicado de Orientação (Sentido de Giro)
+ * Calcula a posição relativa do ponto C em relação ao segmento orientado AB.
+ *
+ * @return > 0 : Giro Anti-horário (C está à ESQUERDA de AB)
+ * @return < 0 : Giro Horário (C está à DIREITA de AB)
+ * @return == 0: Pontos COLINEARES (Alinhados)
+ */
+inline int64_t orientar2d(const Ponto& a, const Ponto& b, const Ponto& c) {
+    // Determinante 2x2 usando promoção para 64 bits:
+    // | (bx - ax)  (by - ay) |
+    // | (cx - ax)  (cy - ay) |
+
+    // (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+
+    const int64_t det =
+        static_cast<int64_t>(b.xl - a.xl) * (c.yl - a.yl) -
+        static_cast<int64_t>(b.yl - a.yl) * (c.xl - a.xl);
+
+    return det;
 }
 
 /**
-     * @brief Predicado InCircle (O Juiz de Delaunay)
-     * Verifica se o ponto D "invade" o círculo formado por A, B e C.
-     * Requisito: A, B, C devem estar em ordem Anti-Horária (CCW).
-     */
+ * @brief Predicado InCircle (Teste de Delaunay)
+ * Verifica se o ponto D está dentro do círculo circunscrito ao triângulo ABC.
+ *
+ * Requisito: A, B, C devem estar em ordem ANTI-HORÁRIA (CCW).
+ * @return > 0 se D está DENTRO (Ilegal -> Swap)
+ * @return < 0 se D está FORA (Legal)
+ * @return 0 se os 4 pontos são CO-CIRCULARES
+ */
 inline double inCircle(const Ponto& a, const Ponto& b, const Ponto& c, const Ponto& d) {
-    // Coordenadas relativas ao ponto D para aumentar a precisão numérica
-    const double adx = a.x - d.x;
-    const double ady = a.y - d.y;
-    const double bdx = b.x - d.x;
-    const double bdy = b.y - d.y;
-    const double cdx = c.x - d.x;
-    const double cdy = c.y - d.y;
+    // 1. Convertemos as coordenadas locais (inteiras) para double relativo a D.
+    // Usamos double aqui porque o determinante envolve termos ao CUBO.
+    // Ex: (100.000 unidades)^3 = 10^15. O int64_t chegaria no limite rapidamente.
+    const double adx = static_cast<double>(a.xl) - d.xl;
+    const double ady = static_cast<double>(a.yl) - d.yl;
+    const double bdx = static_cast<double>(b.xl) - d.xl;
+    const double bdy = static_cast<double>(b.yl) - d.yl;
+    const double cdx = static_cast<double>(c.xl) - d.xl;
+    const double cdy = static_cast<double>(c.yl) - d.yl; // Cuidado com o nome yl aqui
 
-    // Termos quadráticos das distâncias relativas
-    const double ab_sq = adx * adx + ady * ady;
-    const double bd_sq = bdx * bdx + bdy * bdy;
-    const double cd_sq = cdx * cdx + cdy * cdy;
+    // 2. Termos quadráticos (Distâncias ao quadrado relativas a D)
+    const double a_sq = adx * adx + ady * ady;
+    const double b_sq = bdx * bdx + bdy * bdy;
+    const double c_sq = cdx * cdx + cdy * cdy;
 
-    // Determinante 3x3 expandido (Regra de Sarrus)
-    // Se > 0: D está dentro (Precisa de SWAP)
-    return adx * (bdy * cd_sq - cdy * bd_sq) -
-           ady * (bdx * cd_sq - cdx * bd_sq) +
-           ab_sq * (bdx * cdy - cdx * bdy);
+    // 3. Determinante 3x3 expandido (Regra de Sarrus)
+    // | adx  ady  a_sq |
+    // | bdx  bdy  b_sq |
+    // | cdx  cdy  c_sq |
+
+    return adx * (bdy * c_sq - cdy * b_sq) -
+           ady * (bdx * c_sq - cdx * b_sq) +
+           a_sq * (bdx * cdy - cdx * bdy);
 }
 
-    /**
-     * @brief Zíper de Morton (Intercalação de Bits via Hardware)
-     * Transforma coordenadas X e Y em um único código de 64 bits.
-     * Requer suporte a BMI2 no processador (-mbmi2).
-     */
-    inline uint64_t gerarMortonBMI2(uint32_t x, uint32_t y) {
-        // Máscaras mágicas: 0x5555... seleciona bits intercalados (010101...)
-        // O _pdep_u64 espalha os bits do seu número nas posições da máscara.
-        uint64_t x_espalhado = _pdep_u64(static_cast<uint64_t>(x), 0x5555555555555555);
-        uint64_t y_espalhado = _pdep_u64(static_cast<uint64_t>(y), 0xAAAAAAAAAAAAAAAA);
 
-        // O "Zíper": Funde os dois em um só DNA espacial
-        return x_espalhado | y_espalhado;
-    }
+/**
+ * @brief Zíper de Morton (Intercalação de Bits via Hardware)
+ * Transforma coordenadas X e Y em um único código de 64 bits.
+ * Requer suporte a BMI2 no processador (-mbmi2).
+ */
+inline uint64_t gerarMortonBMI2(uint32_t x, uint32_t y) {
+    uint64_t x_espalhado = _pdep_u64(static_cast<uint64_t>(x), 0x5555555555555555);
+    uint64_t y_espalhado = _pdep_u64(static_cast<uint64_t>(y), 0xAAAAAAAAAAAAAAAA);
+    return x_espalhado | y_espalhado;
+}
 
 } // namespace TerraCore

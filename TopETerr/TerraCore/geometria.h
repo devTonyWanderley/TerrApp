@@ -11,6 +11,7 @@ namespace TerraCore {
 // --- INFRAESTRUTURA ---
 constexpr double EPSILON = 1e-12;
 constexpr size_t VAZIO = 999999999;
+uint64_t gerarMortonBMI2(uint32_t x, uint32_t y);
 
 // --- TIPOS DE DADOS AUXILIARES ---
 
@@ -34,54 +35,56 @@ struct idAmostra {
 };
 
 struct vNoTracado {
-    double estaca;
-    double offset;
+    uint32_t estaca;
+    int32_t offset;
 };
 
 // --- O ÁTOMO: PONTO ---
 
-struct Ponto {
-    // Registradores Estáticos da Obra (O Marco Zero)
-    static double xOrigem, yOrigem;
+struct Ponto
+{
+    // Registradores Globais (Agora guardados como Inteiros Puros)
+    static uint32_t xOrigem, yOrigem;
 
-    // Chave primária
     uint64_t dna = 0;
+    uint32_t xl, yl, zl;
 
-    // Coordenadas Locais (Alta Precisão)
-    double x, y;
-    int32_t zFix;
-
-    // A Versatilidade: Monostate (vazio), Amostra (campo) ou Traçado (projeto)
     std::variant<std::monostate, idAmostra, vNoTracado> dados;
 
-    // Construtor: Nasce Local, gera DNA e fixa Cota
-    Ponto(double xG, double yG, double zG, std::string id = "", std::string attr = "")
-        : x(xG - xOrigem), y(yG - yOrigem)
-    {
-        // 1. Fixar a Cota
-        zFix = static_cast<int32_t>(std::round(zG * 10000.0));
+    // --- CONSTRUTORES DE INTEIRO ---
 
-        // 3. Atribuir Metadados (se houver)
-        if (!id.empty()) {
-            dados = idAmostra{id, attr};
-        }
+    // Construtor Base (Usado pelo MotorIO após converter as strings)
+    Ponto(uint32_t xG, uint32_t yG, uint32_t zG): xl(xG - xOrigem), yl(yG - yOrigem), zl(zG), dados(std::monostate{})
+    {
+        dna = gerarMortonBMI2(xl, yl);
     }
 
-    // Métodos de conveniência
-    inline double z() const { return zFix / 10000.0; }
+    // Construtor com Metadados (Amostra de Campo)
+    Ponto(uint32_t xG, uint32_t yG, uint32_t zG, idAmostra amostra): xl(xG - xOrigem), yl(yG - yOrigem), zl(zG), dados(std::move(amostra))
+    {
+        dna = gerarMortonBMI2(xl, yl);
+    }
+
+    // --- MÉTODOS DE CONVENIÊNCIA (Para o mundo externo) ---
+    inline double x() const { return xl / 10000.0; }
+    inline double y() const { return yl / 10000.0; }
+    inline double z() const { return zl / 10000.0; }
 };
+
 
 // --- A CÉLULA: FACE ---
 
-struct Face {
-    std::array<size_t, 3> v; // Índices dos vértices
-    std::array<size_t, 3> f; // Índices das faces vizinhas (Opção A)
+struct Face
+{
+    std::array<size_t, 3> v; // Vértices: v[0], v[1], v[2] (Sempre CCW)
+    std::array<size_t, 3> f; // Vizinhos: f[0] oposta a v[0], etc.
 
-    Face(size_t v0, size_t v1, size_t v2)
-        : v({v0, v1, v2}), f({VAZIO, VAZIO, VAZIO}) {}
+    Face(size_t v0, size_t v1, size_t v2): v({v0, v1, v2}), f({VAZIO, VAZIO, VAZIO}){}
 
-    inline bool ehFantasma() const {
-        return (v[0] < 3 || v[1] < 3 || v[2] < 3);
+    // Agora, "ser borda" é ter pelo menos um vizinho VAZIO
+    inline bool naBorda() const {
+        return (f[0] == VAZIO || f[1] == VAZIO || f[2] == VAZIO);
     }
 };
+
 }

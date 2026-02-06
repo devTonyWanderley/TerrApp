@@ -34,6 +34,9 @@ target_link_libraries(TopETerr
         TerraIO
 )
 
+# PUBLIC garante que o TerraCore E quem o utiliza (main.cpp) usem BMI2
+target_compile_options(TerraCore PUBLIC -mbmi2 -march=native)
+
 # --- O restante permanece igual (Traduções e Deploy) ---
 
 qt_add_translations(

@@ -1,6 +1,7 @@
 #pragma once
 #include "calculo.h"
 #include <vector>
+#include <list>
 
 namespace TerraCore
 {
@@ -25,6 +26,43 @@ namespace TerraCore
             void subdividir(size_t idNo);
         };
     }
+    class Fronteira
+    {
+    public:
+        // O Colar: Lista sequencial de índices de pontos que formam a borda
+        // Ex: {10, 5, 8, 20} -> Arestas: 10-5, 5-8, 8-20, 20-10
+        std::list<size_t> colar;
+
+        // --- AÇÕES DO MESTRE DE OBRAS ---
+
+        // 1. O Big Bang: Inicia o colar com os 3 primeiros pontos (CCW)
+        void iniciar(size_t a, size_t b, size_t c)
+        {
+            colar.push_back(a);
+            colar.push_back(b);
+            colar.push_back(c);
+            // Atualiza embaixadas iniciais aqui...
+        }
+
+        // 3. A Costura: Insere P no colar e remove os vértices que ficaram "escondidos"
+        void atualizar(std::list<size_t>::iterator horizonte, size_t idPontoNovo)
+        {
+            // Insere P após o primeiro vértice do horizonte
+            auto novoIt = colar.insert(std::next(horizonte), idPontoNovo);
+
+            // Aqui executamos o "Fechamento de Cova" (Eliminação)
+            // para manter a Casca Convexa e a ordem numérica estável.
+            limparConcavidades(novoIt);
+        }
+
+    private:
+
+        void limparConcavidades(std::list<size_t>::iterator novoPonto)
+        {
+            // Lógica de "Zigue-Zague" para trás e para frente
+            // removendo pontos onde o ângulo interno ficou > 180 graus.
+        }
+    };
 
     class superficie
     {
@@ -34,96 +72,17 @@ namespace TerraCore
         std::vector<Quadtree::NoQuadtree> poolNos;
         Quadtree::Highlander indexador;
         superficie(std::vector<Ponto> pontosProntos, BBox limitesIniciais);
+        // Construtor que aceita o pool de pontos vindo do MotorIO
+        superficie(const std::vector<Ponto>& pontos);
         void processarTudo();
+        void iniciarMalha();
+        std::list<size_t>::iterator localizarHorizonte(const Ponto& p);
+        void expandirCasca(std::list<size_t>::iterator horizonte, size_t idPontoNovo);
+        void vincularVizinhosExternos(size_t idNovaFace, size_t v1, size_t v2);
+    private:
+        Fronteira _fronteira;
+        void fecharLequeDireita(std::list<size_t>::iterator itP);
+        void fecharLequeEsquerda(std::list<size_t>::iterator itP);
+        void legalizarArestas(size_t idPontoNovo);
     };
 }
-
-
-/*
-#pragma once
-#include "calculo.h"  // Já traz geometria.h e as ferramentas
-#include <stack>
-#include <vector>
-
-namespace TerraCore {
-
-// --- FERRAMENTA AUXILIAR ---
-namespace Quadtree {
-struct NoQuadtree {
-    BBox limites;
-    int nivel;
-
-    // Se idFilhos[0] == 0, o nó é uma FOLHA.
-    // Armazenamos o ID (índice no pool) dos 4 filhos.
-    std::array<size_t, 4> idFilhos = {0, 0, 0, 0};
-
-    // Armazena os índices dos pontos que pertencem a este nó
-    std::vector<size_t> indicesPontos;
-
-    NoQuadtree() : nivel(0) {}
-};
-
-class Highlander {
-private:
-    // O "Coração de Memória": Todos os quadrados moram aqui
-    std::vector<NoQuadtree> poolNos;
-
-    // Regras de Ouro do Projeto
-    const int MAX_NIVEL = 24;  // Travagem para precisão de ~0.6mm
-    const double EPSILON = 0.001; // Tolerância de 1mm para fusão de pontos
-
-public:
-    Highlander(BBox limitesIniciais) {
-        poolNos.reserve(4096); // Alocação antecipada para evitar realocações
-        NoQuadtree raiz;
-        raiz.limites = limitesIniciais;
-        raiz.nivel = 0;
-        poolNos.push_back(raiz);
-    }
-
-    // Método principal de inserção
-    void inserir(size_t idPonto, const std::vector<Ponto>& pontosGlobais);
-
-private:
-    void subdividir(size_t idNo);
-    int calcularQuadrante(const BBox& limites, const Ponto& p);
-};
-}
-
-class superficie {
-public:
-    // O Estoque de Materiais
-    std::vector<Ponto> poolPontos;
-    std::vector<Face> poolFaces;
-
-    // O Highlander agora guarda uma referência para a superfície "mãe"
-    struct Highlander {
-        superficie& mae; // O binóculo para enxergar o poolPontos
-
-        Highlander(superficie& s) : mae(s) {}
-
-        void inserir(size_t idPonto);
-        void subdividir(size_t idNo);
-    };
-
-    // Instância do Highlander que vive na superfície
-    Highlander indexador;
-
-    // A Ferramenta de Ajuste Fino
-    std::stack<size_t> pilhaLegalizacao;
-
-    // Construtor: Inicia a obra com os pontos e o Super-Triângulo
-    superficie(std::vector<Ponto> pontosProntos);
-
-    // Ações de Construção (As assinaturas)
-    size_t localizarPonto(const Ponto& p);
-    void splitFace(size_t idFacePai, size_t idPontoNovo);
-    void legalizarAresta(size_t idFaceCentral, size_t idFaceVizinha);
-
-private:
-    // Manutenção de rede: Atualiza quem é vizinho de quem
-    void atualizarVizinho(size_t idVizinho, size_t idAntigo, size_t idNovo);
-};
-
-} // namespace TerraCore
-*/
