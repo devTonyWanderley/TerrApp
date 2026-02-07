@@ -31,19 +31,86 @@ void painelCad::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Desenhar os pontos que já "nasceram"
-    painter.setPen(QPen(Qt::red, 1));
+    // Fundo escuro para destacar a obra
+    painter.fillRect(rect(), Qt::black);
 
+    // Calibração Automática (Gambiarra temporária para o teste de hoje)
+    // Se não tivermos zoom, vamos chutar um valor para ver os 531 pontos
+    if (_zoom == 1.0f) _zoom = 3.5f;
+    _offsetX = 100; // Afasta da borda
+    _offsetY = 100;
+
+    // --- DESENHAR AS FACES (LINHAS VERMELHAS) ---
+    painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+
+    for (const auto& f : _faces) {
+        // Pegamos os 3 pontos do pool global usando os índices da Face
+        const auto& p0 = _estoque[f.v[0]];
+        const auto& p1 = _estoque[f.v[1]];
+        const auto& p2 = _estoque[f.v[2]];
+
+        // Conversão para Pixels
+        auto tela0 = QPointF((p0.x() * _zoom) + _offsetX, height() - ((p0.y() * _zoom) + _offsetY));
+        auto tela1 = QPointF((p1.x() * _zoom) + _offsetX, height() - ((p1.y() * _zoom) + _offsetY));
+        auto tela2 = QPointF((p2.x() * _zoom) + _offsetX, height() - ((p2.y() * _zoom) + _offsetY));
+
+        // Desenha o triângulo
+        painter.drawLine(tela0, tela1);
+        painter.drawLine(tela1, tela2);
+        painter.drawLine(tela2, tela0);
+    }
+
+    // --- DESENHAR OS PONTOS (CRUZES BRANCAS) ---
+    painter.setPen(QPen(Qt::white, 1));
     for (const auto& p : _visiveis) {
-        // Conversão: Metros -> Pixels + Inversão de Y
-        // Usamos p.x() e p.y() que fazem a divisão por 10.000
         float px = (p.x() * _zoom) + _offsetX;
         float py = height() - ((p.y() * _zoom) + _offsetY);
-
         painter.drawPoint(QPointF(px, py));
-        // Desenha uma cruzinha discreta
-        painter.drawLine(px - 2, py, px + 2, py);
-        painter.drawLine(px, py - 2, px, py + 2);
     }
 }
 }
+
+/*
+void painelCad::paintEvent(QPaintEvent* event) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Fundo escuro para destacar a obra
+    painter.fillRect(rect(), Qt::black);
+
+    // Calibração Automática (Gambiarra temporária para o teste de hoje)
+    // Se não tivermos zoom, vamos chutar um valor para ver os 531 pontos
+    if (_zoom == 1.0f) _zoom = 0.5f;
+    _offsetX = 100; // Afasta da borda
+    _offsetY = 100;
+
+    // --- DESENHAR AS FACES (LINHAS VERMELHAS) ---
+    painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+
+    for (const auto& f : _faces) {
+        // Pegamos os 3 pontos do pool global usando os índices da Face
+        const auto& p0 = _estoque[f.v[0]];
+        const auto& p1 = _estoque[f.v[1]];
+        const auto& p2 = _estoque[f.v[2]];
+
+        // Conversão para Pixels
+        auto tela0 = QPointF((p0.x() * _zoom) + _offsetX, height() - ((p0.y() * _zoom) + _offsetY));
+        auto tela1 = QPointF((p1.x() * _zoom) + _offsetX, height() - ((p1.y() * _zoom) + _offsetY));
+        auto tela2 = QPointF((p2.x() * _zoom) + _offsetX, height() - ((p2.y() * _zoom) + _offsetY));
+
+        // Desenha o triângulo
+        painter.drawLine(tela0, tela1);
+        painter.drawLine(tela1, tela2);
+        painter.drawLine(tela2, tela0);
+    }
+
+    // --- DESENHAR OS PONTOS (CRUZES BRANCAS) ---
+    painter.setPen(QPen(Qt::white, 1));
+    for (const auto& p : _visiveis) {
+        float px = (p.x() * _zoom) + _offsetX;
+        float py = height() - ((p.y() * _zoom) + _offsetY);
+        painter.drawPoint(QPointF(px, py));
+    }
+}
+
+*/

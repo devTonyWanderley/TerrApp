@@ -5,25 +5,38 @@
 #include "painelCad.h"   // TerraView
 #include <algorithm>
 
-int main() {
-    // 1. CARGA: O MotorIO lê o arquivo e define o Marco Zero
-    auto entrega = TerraIO::MotorIO::processar("C:/Tony/Soft/soft2026/Instâncias/Pontos.pdw");
+int main(int argc, char *argv[]) {
+    QApplication a(argc, argv);
 
-    // 2. GALPÃO: Criamos a superfície e entregamos o pool de pontos
+    // 1. CARGA E CÁLCULO
+    auto entrega = TerraIO::MotorIO::processar("C:/2026/NovaSede/Pontos.pdw");
+
+
+    // 2. A ORDENAÇÃO (O "Pulo do Gato")
+    // Aqui a serpente de Morton toma forma
+    std::sort(entrega.pontos.begin(), entrega.pontos.end(),
+              [](const TerraCore::Ponto& a, const TerraCore::Ponto& b) {
+                  return a.dna() < b.dna();
+              });
+
     TerraCore::superficie malha(entrega.pontos);
-
-    // 3. O NASCIMENTO: Iniciamos os primeiros 3 pontos (O Triângulo Semente)
     malha.iniciarMalha();
 
-    // 4. A EVOLUÇÃO: O loop que percorre do 4º ao 531º ponto
     for (size_t i = 3; i < entrega.pontos.size(); ++i) {
         malha.processarPonto(i);
     }
+    qDebug() << "Total de Pontos:" << entrega.pontos.size();
+    qDebug() << "Total de Faces geradas:" << malha.getFaces().size();
 
-    // 5. A LENTE: Passamos o resultado para o seu painelCad
-    visualizador.setDados(malha.getPontos(), malha.getFaces());
+    // 2. CRIAÇÃO DO VISUALIZADOR (O que estava faltando)
+    TerraView::painelCad visualizador;
+    visualizador.showFullScreen();
+    visualizador.setPontos(malha.getPontos());
+    visualizador.show();
+    qDebug() << "Total de Pontos:" << entrega.pontos.size();
+    qDebug() << "Total de Faces geradas:" << malha.getFaces().size();
 
-    return app.exec();
+    return a.exec();
 }
 
 /*

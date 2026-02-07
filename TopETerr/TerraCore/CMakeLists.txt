@@ -28,6 +28,7 @@ add_library(TerraCore STATIC
   calculo.h
   superficie.h
   superficie.cpp
+  geometria.cpp
 )
 
 target_link_libraries(TerraCore PRIVATE Qt${QT_VERSION_MAJOR}::Core)
